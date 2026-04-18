@@ -10,6 +10,9 @@ class Season(db.Model):
 
     episodes = relationship("Episode", back_populates="season", cascade="all, delete-orphan")
 
+    def __repr__(self):
+        return f'<Season {self.id}: {self.name}>'
+    
     def to_json(self):
         return {
             "id": self.id,
