@@ -4,7 +4,7 @@ from models.post import Post, MediaType
 from models.episode import Episode
 from models.season import Season
 from requests.image_service import save_image, delete_image
-from config.constants import image_uploads, allowed_extensions
+from config.constants import media_uploads, allowed_extensions
 
 @app.route("/posts", methods = ["GET"])
 def get_posts():
@@ -42,7 +42,7 @@ def create_post():
 
     filename, error = save_image(
         file,
-        image_uploads,
+        media_uploads,
         allowed_extensions
     )
 

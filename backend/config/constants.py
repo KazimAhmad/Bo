@@ -1,4 +1,4 @@
 
 databaseName = "sqlite:///bo.db"
-image_uploads = "images"
+media_uploads = "media"
 allowed_extensions = {"png", "jpg", "jpeg"}
