@@ -1,8 +1,10 @@
 from config.config import db, app
 from flask import request, jsonify
-from models.post import Post
+from models.post import Post, MediaType
 from models.episode import Episode
 from models.season import Season
+from requests.image_service import save_image, delete_image
+from config.constants import image_uploads, allowed_extensions
 
 @app.route("/posts", methods = ["GET"])
 def get_posts():
@@ -26,143 +28,51 @@ def get_posts():
             "total": posts.total,
             "items": posts_to_json
         }
+    ), 200
+
+@app.route("/posts/create", methods=["POST"])
+def create_post():
+    description = request.form.get("description")
+    media_type = request.form.get("media_type")
+    episode_id = request.form.get("episode")
+    season_id = request.form.get("season")
+
+    media_type_enum = MediaType[media_type]
+    file = request.files.get("media")
+
+    filename, error = save_image(
+        file,
+        image_uploads,
+        allowed_extensions
     )
 
-@app.route("/movies/create", methods = ["POST"])
-def movies_create():
-    data = request.get_json()
+    if error:
+        return jsonify({"error": error}), 400
 
-    new_title = data.get("title")
-    new_review = data.get("my_review")
-    new_movie_category = data.get("category")
-    new_rating = data.get("rating")
-    new_imdb_link = data.get("imdb_link")
-    new_release_year = data.get("release_year")
-
-    new_movie_category_name = new_movie_category["name"]
-    movie_category = MovieCategory.query.filter_by(name = new_movie_category_name).first()
-
-
-    if not new_title:
-        return jsonify(
-            {
-                "error": "a valid title is required"
-            }
-        ), 400
-    if not movie_category:
-        return jsonify(
-            {
-                "error": "a valid category is required"
-            }
-        ), 400
-    new_movie = Movie(title = new_title,
-                      my_review = new_review,
-                      category = movie_category,
-                      rating = new_rating,
-                      imdb_link = new_imdb_link,
-                      release_year = new_release_year)
-    
-    try:
-        db.session.add(new_movie)
-        db.session.commit()
-
-    except Exception as e:
-        return jsonify(
-            {
-                "error": str(e)
-            }
-        ), 400
-    
-    new_movie_id = new_movie.id
-    return jsonify({"id": new_movie_id}), 200
-
-@app.route("/movies", methods = ["DELETE"])
-def delete_movie():
-    data = request.get_json()
-    ids = data.get("ids", [])
-
-    if not ids:
-        return jsonify({"error": "No IDs provided"}), 400
-
-    movies = Movie.query.filter(Movie.id.in_(ids)).all()
-
-    if not movies:
-        return jsonify({"error": "No movie found"}), 404
-    
-    for movie in movies:
-        db.session.delete(movie)
-
-    db.session.commit()
-
-    return jsonify({
-        "deleted_ids": [t.id for t in movies]
-    }), 200
-
-
-@app.route("/movies/categories", methods = ["GET"])
-def movies_categories():
-    movies_cats = MovieCategory.query.all()
-    movies_cats_to_json = list(map(lambda movie: movie.to_json(), movies_cats))
-
-    return jsonify(
-        movies_cats_to_json
+    episode = (
+        Episode.query
+        .join(Season)
+        .filter(
+            Season.id == season_id,
+            Episode.id == episode_id
+        )
+        .first_or_404()  # raises 404 if not found
     )
-
-
-@app.route("/movies/category/create", methods = ["POST"])
-def movie_category_create():
-    new_name = request.json.get("name")
-
-    same_category = MovieCategory.query.filter_by(name = new_name).first()
-    if same_category:
-        return jsonify(
-            {
-                "error": "a  movie category with same name already exists"
-            }
-        ), 400
     
-    if not new_name:
-        return jsonify(
-            {
-                "error": "A valid name is required"
-            }
-        ), 400
-    
-    new_movie_category = MovieCategory(name = new_name)
-    
+    new_post = Post(media_url = filename,
+                    description = description,
+                    media_type = media_type_enum,
+                    episode_id = episode.id,
+                    episode = episode)
+ 
     try:
-        db.session.add(new_movie_category)
+        db.session.add(new_post)
         db.session.commit()
     
     except Exception as e:
-        return jsonify(
-            {
-                "error": str(e) 
-            }
-        ), 400
-    
-    new_movie_category_id = new_movie_category.id
-    return jsonify({"id": new_movie_category_id}), 201
+        db.session.rollback()
+        return jsonify({"message": str(e)}), 400
+    new_post_id = new_post.id
 
+    return jsonify({"id": new_post_id}), 201
 
-@app.route("/movies/categories", methods = ["DELETE"])
-def delete_movies_category():
-    data = request.get_json()
-    ids = data.get("ids", [])
-
-    if not ids:
-        return jsonify({"error": "No IDs provided"}), 400
-
-    movies_cats = MovieCategory.query.filter(MovieCategory.id.in_(ids)).all()
-
-    if not movies_cats:
-        return jsonify({"error": "No categories found"}), 400
-    
-    for cat in movies_cats:
-        db.session.delete(cat)
-
-    db.session.commit()
-
-    return jsonify({
-        "deleted_ids": [t.id for t in movies_cats]
-    }), 200
