@@ -11,7 +11,7 @@ class MediaType(enum.Enum):
 class Post(db.Model):
     __tablename__ = "post"
 
-    id = db.Column(db.Interger, primary_key = True)
+    id = db.Column(db.Integer, primary_key = True)
     media_url = db.Column(db.String, unique = True, nullable = False)
     description = db.Column(db.String(180), nullable = True)
     date = db.Column(db.DateTime, nullable = False, default= datetime.datetime.now(datetime.timezone.utc))
